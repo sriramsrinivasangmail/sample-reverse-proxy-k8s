@@ -8,35 +8,46 @@ This example is a workaround for a situation where only Edge termination based i
 
 However, kube svcs (such as zen's ibm-nginx-svc) only expose HTTPs ports.  So - the edge sending out http to such https services will fail.
 
+We will try to provide this workaround without needing additional docker images, if possible. 
 
 ### Approach
 
-We will deploy an nginx server "rev-proxy"  with http only exposed into the same namespace as the "target" kubernetes svc. 
-This nginx server will in turn just reverse proxy to the real https service.
+- We will deploy an nginx server pod "rev-proxy" into the same namespace as the "target" kubernetes svc. This rev-proxy nginx server will have only http exposed.
 
-We then create an edge route to the rev-proxy-svc.
+- This nginx server, with a special config, will in turn just reverse proxy to the target https kubernetes service.
 
-The result -  from browser access the exposed edge route -> which forwards http to the `rev-proxy` pod --> this pod reverse proxies to the "target" service using https
+- We then create an edge route to the rev-proxy-svc.
+
+The result:
+
+  from browser access the exposed edge route (https)
+
+    -> the route forwards to the `rev-proxy` pod using http in the clear
+
+        --> this pod reverse proxies to the "target" service using https
+
 
 
 ### Samples
 
-Under k8s/ - you will see the following yamls:
+Under k8s/ - you will find the following yamls:
 
 
 - rev-proxy-nginx-conf-cm.yaml
 
-This configmap is essentially an nginx conf that proxies to the real target kubernetes services.
+This configmap is contains an nginx conf that enables the proxy to the target kubernetes services.
 
-**Note 1** - the resolver is required inside of the OpenShift pod to lookup the kubernetes svc.  It is set to `172.30.0.10` - but change to the resolver used in your cluster. For example, in a running pod, look at /etc/resolv.conf and grab the `nameserver` entry for the resolver's IP.
+**Note 1** - an nginx `resolver` entry is *required* inside of the OpenShift pod to lookup the kubernetes svc.  It is set to `172.30.0.10` - but change to the resolver used in your cluster. For example, in a running pod, look at /etc/resolv.conf and grab the `nameserver` entry for the resolver's IP.
 
-**Note 2** - there is one proxy_pass to a `https://ibm-nginx-svc.cpd-202.svc.cluster.local` kubernetes svc.  Change this to the fully qualified name of the service you intend to reverse proxy too. Note - even if the rev-proxy pods run in the same namespace as that ibm-nginx-svc kube service, I still needed to fully qualify the name _and_  needed the resolver.
+**Note 2** - there is one proxy_pass to a `https://ibm-nginx-svc.cpd-202.svc.cluster.local` kubernetes svc.  Change this to the fully qualified name of the service you intend to reverse proxy too. 
+
+Important -- even if the rev-proxy pod run in the same namespace as the target ibm-nginx-svc kube service, I still needed to fully qualify the hostname  _and_  needed the resolver.
 
 - rev-proxy-deployment.yaml
 
 This deploys a http based nginx server. It mounts nginx.conf from the `rev-proxy-nginx-conf-cm` configmap .
 
-** Note 3** - The image used is one (quay.io/opencloudio/icp4data-nginx-repo) that should already exist in the cluster from the zen service installation. Change the image digest to one that you already have replicated into your private registry (say via: `oc get deployment ibm-nginx -o yaml | grep "image:"`). 
+**Note 3** - The image used is one (quay.io/opencloudio/icp4data-nginx-repo) that should already exist in the cluster from the zen service installation. Change the image digest to one that you already have replicated into your private registry (say via: `oc get deployment ibm-nginx -o yaml | grep "image:"`). 
 
 
 - rev-proxy-svc.yaml
