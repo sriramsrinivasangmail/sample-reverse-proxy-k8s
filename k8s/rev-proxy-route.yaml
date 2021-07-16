@@ -1,0 +1,14 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: rev-proxy-route
+spec:
+  to:
+    kind: Service
+    name: rev-proxy-svc
+    weight: 100
+  port:
+    targetPort: rev-proxy-http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

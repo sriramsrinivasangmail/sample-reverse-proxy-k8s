@@ -1,0 +1,30 @@
+apiVersion: apps/v1 
+kind: Deployment
+metadata:
+  name: rev-proxy
+spec:
+  selector:
+    matchLabels:
+      app: rev-proxy
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: rev-proxy
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: rev-proxy
+        image: "quay.io/opencloudio/icp4data-nginx-repo@sha256:187bf65a5c6b5f950cd3a71afd7845d5a22f1adc395c8fec8be9bb9af8416629"
+        command: ["nginx"]
+        args: ["-g", "daemon off;"]
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - mountPath: /usr/local/openresty/nginx/conf/nginx.conf
+          subPath: nginx.conf
+          name: nginx-conf-vol
+      volumes:
+      - name: nginx-conf-vol
+        configMap:
+          name: rev-proxy-nginx-conf-cm
